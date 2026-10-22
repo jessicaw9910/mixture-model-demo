@@ -7,7 +7,7 @@
 A $K$-component univariate Gaussian mixture with component-specific (heteroscedastic) variances:
 
 $$
-p(x \mid \theta) = \sum_{k=1}^{K} \pi_k \, \mathcal{N}(x \mid \mu_k, \sigma_k^2),
+p(x \mid \theta) = \sum_{k=1}^{K} \pi_k \mathcal{N}(x \mid \mu_k, \sigma_k^2),
 \qquad \theta = (\pi_{1:K}, \mu_{1:K}, \sigma^2_{1:K}),
 \qquad \pi_k \ge 0,\ \textstyle\sum_k \pi_k = 1 .
 $$
@@ -15,7 +15,7 @@ $$
 For i.i.d. data $x_{1:n}$ the log-likelihood is
 
 $$
-\ell(\theta) = \sum_{i=1}^{n} \log \sum_{k=1}^{K} \pi_k \, \mathcal{N}(x_i \mid \mu_k, \sigma_k^2).
+\ell(\theta) = \sum_{i=1}^{n} \log \sum_{k=1}^{K} \pi_k \mathcal{N}(x_i \mid \mu_k, \sigma_k^2).
 $$
 
 ### 1.2 The likelihood has no upper bound
@@ -23,14 +23,14 @@ $$
 Fix any data point $x_j$. Set $\mu_2 = x_j$ and leave component 1 at any non-degenerate setting with $\pi_1 > 0$ and $\sigma_1 > 0$. Then:
 
 - **Point $j$:** its contribution is
-  $\log\!\big[\pi_1 \mathcal{N}(x_j \mid \mu_1,\sigma_1^2) + \pi_2 (2\pi\sigma_2^2)^{-1/2}\big]$.
+  $\log\big[\pi_1 \mathcal{N}(x_j \mid \mu_1,\sigma_1^2) + \pi_2 (2\pi\sigma_2^2)^{-1/2}\big]$.
   As $\sigma_2 \to 0$ the second term dominates, so this is $-\log\sigma_2 + O(1) \to +\infty$.
 - **Every other point $i \ne j$:** the component-2 density $\mathcal{N}(x_i \mid x_j, \sigma_2^2) \to 0$, but component 1 still gives $x_i$ a finite, non-zero density. Each of these terms therefore converges to the finite value $\log[\pi_1 \mathcal{N}(x_i \mid \mu_1,\sigma_1^2)]$.
 
 Hence
 
 $$
-\ell(\theta) = -\log \sigma_2 + C + o(1) \;\xrightarrow[\sigma_2 \to 0]{}\; +\infty .
+\ell(\theta) = -\log \sigma_2 + C + o(1) \quad\xrightarrow[\sigma_2 \to 0]{}\quad +\infty .
 $$
 
 Consequences:
@@ -70,8 +70,8 @@ The priors are independent across parameter blocks and across components. They a
 | Parameter | Prior | Default in `Prior.weak(x)` | Config key |
 |---|---|---|---|
 | $\pi$ | $\text{Dirichlet}(\alpha, \dots, \alpha)$ | $\alpha = 2$ | `prior.alpha` |
-| $\mu_k$ | $\mathcal{N}(m_0, \tau^2)$ | $m_0 = \bar{x}$, $\tau = 3\,\text{sd}(x)$ | `prior.tau_scale` (the 3) |
-| $\sigma_k^2$ | $\text{Inv-Gamma}(a_0, b_0)$ | $a_0 = 2$, $b_0 = (a_0+1)\,\text{var}(x)/K^2$ | `prior.a0` |
+| $\mu_k$ | $\mathcal{N}(m_0, \tau^2)$ | $m_0 = \bar{x}$, $\tau = 3 \text{sd}(x)$ | `prior.tau_scale` (the 3) |
+| $\sigma_k^2$ | $\text{Inv-Gamma}(a_0, b_0)$ | $a_0 = 2$, $b_0 = (a_0+1) \text{var}(x)/K^2$ | `prior.a0` |
 
 $b_0$ is chosen so that the **prior mode** of each variance, $b_0/(a_0+1)$, equals $\text{var}(x)/K^2$. That is a rough guess at a single component's variance if the $K$ components split the data's spread evenly. This follows the data-scaled defaults in Fraley & Raftery (2007).
 
@@ -79,8 +79,8 @@ Log prior, up to a constant (`Prior.logpdf`):
 
 $$
 \log p(\theta) = (\alpha - 1)\sum_k \log \pi_k
-\;-\; \sum_k \frac{(\mu_k - m_0)^2}{2\tau^2}
-\;-\; \sum_k \Big[(a_0+1)\log\sigma_k^2 + \frac{b_0}{\sigma_k^2}\Big].
+-\sum_k \frac{(\mu_k - m_0)^2}{2\tau^2}
+-\sum_k \Big[(a_0+1)\log\sigma_k^2 + \frac{b_0}{\sigma_k^2}\Big].
 $$
 
 ### 2.2 The posterior is bounded
@@ -89,9 +89,9 @@ The MAP objective is $\ell(\theta) + \log p(\theta)$. Along the same singular pa
 
 $$
 \underbrace{-\log\sigma_2}_{\text{likelihood}}
-\;\underbrace{-\,2(a_0+1)\log\sigma_2}_{\text{IG power term}}
-\;\underbrace{-\,\frac{b_0}{\sigma_2^2}}_{\text{IG exponential term}}
-\;\xrightarrow[\sigma_2\to 0]{}\; -\infty .
+\underbrace{-2(a_0+1)\log\sigma_2}_{\text{IG power term}}
+\underbrace{-\frac{b_0}{\sigma_2^2}}_{\text{IG exponential term}}
+\quad\xrightarrow[\sigma_2\to 0]{}\quad -\infty .
 $$
 
 The **IG power term makes the divergence worse**: it also goes to $+\infty$. What rescues the objective is the exponential term $-b_0/\sigma^2$, which goes to $-\infty$ faster than any power of $\log\sigma$ goes to $+\infty$. So any prior on the variance whose density vanishes faster than polynomially at 0 removes the singularity. A prior that is flat or polynomial near zero does not. For example, the Jeffreys-like $p(\sigma^2) \propto 1/\sigma^2$ makes things worse.
@@ -115,7 +115,7 @@ With $\alpha = 2$, this adds one pseudo-count to each component, so no weight ca
 **Means.** This is a precision-weighted average of the data and the prior mean. It uses the variance from the previous iteration:
 
 $$
-\hat\mu_k = \frac{\sum_i r_{ik} x_i / \sigma_k^{2\,(\text{old})} + m_0/\tau^2}{N_k/\sigma_k^{2\,(\text{old})} + 1/\tau^2} .
+\hat\mu_k = \frac{\sum_i r_{ik} x_i / \sigma_k^{2(\text{old})} + m_0/\tau^2}{N_k/\sigma_k^{2(\text{old})} + 1/\tau^2} .
 $$
 
 **Variances.** Set $\partial Q/\partial\sigma_k^2 = 0$, with $S_k$ computed at the *new* $\hat\mu_k$:
@@ -124,10 +124,10 @@ $$
 \hat\sigma_k^2 = \frac{2b_0 + S_k}{2a_0 + N_k + 2} .
 $$
 
-This is the mode of $\text{Inv-Gamma}(a_0 + N_k/2,\; b_0 + S_k/2)$. The key property is that it gives a **data-adaptive variance floor**:
+This is the mode of $\text{Inv-Gamma}(a_0 + N_k/2, b_0 + S_k/2)$. The key property is that it gives a **data-adaptive variance floor**:
 
 $$
-\hat\sigma_k^2 \;\ge\; \frac{2b_0}{2a_0 + n + 2} \;>\; 0,
+\hat\sigma_k^2 \ge \frac{2b_0}{2a_0 + n + 2} > 0,
 $$
 
 because $S_k \ge 0$ and $N_k \le n$. The floor shrinks as $O(1/n)$, so the prior's influence fades with more data.
@@ -147,7 +147,7 @@ Updating $\mu$ and then $\sigma^2$ in turn, conditional on each other, is an ECM
 
 - **Empirical Bayes.** $m_0$, $\tau$ and $b_0$ come from $\bar x$ and $\text{var}(x)$, so the data are used twice. This is standard for weak regularising priors (Fraley & Raftery 2007), but it is not a fully Bayesian prior.
 - **The prior is not neutral on $\sigma$.** It shrinks each $\sigma_k^2$ towards $\text{var}(x)/4$. For these data $\text{var}(x) \approx 0.6(1) + 0.4(0.49) + 0.24\cdot 4^2 \approx 4.6$, so the prior mode is $\sigma \approx 1.08$. That pulls the narrow component ($\sigma_2 = 0.7$) upwards. This explains why figure 2's MAP fit reports $\hat\sigma_2 = 0.97$. **MAP trades a little bias for removing the singularity.**
-- **Near-flat prior on the means.** $\tau = 3\,\text{sd}(x) \approx 6.4$, so the mean prior has essentially no effect. All of the regularisation comes from the weight and variance priors.
+- **Near-flat prior on the means.** $\tau = 3 \text{sd}(x) \approx 6.4$, so the mean prior has essentially no effect. All of the regularisation comes from the weight and variance priors.
 - **MAP depends on parameterisation.** The prior is placed on $\sigma^2$ and the mode is taken in $\sigma^2$. Taking the mode in $\sigma$ or $\log\sigma$ under the transformed prior would give a different estimate. MAP is a point summary, not the posterior.
 
 ### 3.3 Optimisation
@@ -192,7 +192,7 @@ Each figure is computed by an experiment class in `mixture_demo.experiments` and
   The collapse doesn't just break the spiked component. The broad component then has to explain all the remaining data, so $\hat\sigma_1$ and $\hat\pi_1$ are badly inflated too.
 
 ### Figure 3: `MonteCarloExperiment` → `fig3_monte_carlo.png`
-- $n \in \{15, 25, 50, 100, 250, 1000\}$ (`monte_carlo.sample_sizes`), 200 replicate datasets for each $n$ (`monte_carlo.reps`), best of 15 EM starts per fit (`monte_carlo.n_starts`), seed 1 (`monte_carlo.seed`). The numbers below are also written to each run's `summary.json`.
+- $n \in \lbrace 15, 25, 50, 100, 250, 1000\rbrace$ (`monte_carlo.sample_sizes`), 200 replicate datasets for each $n$ (`monte_carlo.reps`), best of 15 EM starts per fit (`monte_carlo.n_starts`), seed 1 (`monte_carlo.seed`). The numbers below are also written to each run's `summary.json`.
 
   | $n$ | Collapsed: MLE | Collapsed: MAP | Median RMSE: MLE | Median RMSE: MAP |
   |---:|---:|---:|---:|---:|
