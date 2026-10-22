@@ -70,8 +70,8 @@ The priors are independent across parameter blocks and across components. They a
 | Parameter | Prior | Default in `Prior.weak(x)` | Config key |
 |---|---|---|---|
 | $\pi$ | $\text{Dirichlet}(\alpha, \dots, \alpha)$ | $\alpha = 2$ | `prior.alpha` |
-| $\mu_k$ | $\mathcal{N}(m_0, \tau^2)$ | $m_0 = \bar{x}$, $\tau = 3 \text{sd}(x)$ | `prior.tau_scale` (the 3) |
-| $\sigma_k^2$ | $\text{Inv-Gamma}(a_0, b_0)$ | $a_0 = 2$, $b_0 = (a_0+1) \text{var}(x)/K^2$ | `prior.a0` |
+| $\mu_k$ | $\mathcal{N}(m_0, \tau^2)$ | $m_0 = \bar{x}$, $\tau = 3 \cdot \text{sd}(x)$ | `prior.tau_scale` (the 3) |
+| $\sigma_k^2$ | $\text{Inv-Gamma}(a_0, b_0)$ | $a_0 = 2$, $b_0 = \dfrac{(a_0+1) \cdot \text{var}(x)}{K^2}$ $\left(= \tfrac{3}{4} \text{var}(x) \text{ for } K = 2\right)$ | `prior.a0` |
 
 $b_0$ is chosen so that the **prior mode** of each variance, $b_0/(a_0+1)$, equals $\text{var}(x)/K^2$. That is a rough guess at a single component's variance if the $K$ components split the data's spread evenly. This follows the data-scaled defaults in Fraley & Raftery (2007).
 
@@ -147,7 +147,7 @@ Updating $\mu$ and then $\sigma^2$ in turn, conditional on each other, is an ECM
 
 - **Empirical Bayes.** $m_0$, $\tau$ and $b_0$ come from $\bar x$ and $\text{var}(x)$, so the data are used twice. This is standard for weak regularising priors (Fraley & Raftery 2007), but it is not a fully Bayesian prior.
 - **The prior is not neutral on $\sigma$.** It shrinks each $\sigma_k^2$ towards $\text{var}(x)/4$. For these data $\text{var}(x) \approx 0.6(1) + 0.4(0.49) + 0.24\cdot 4^2 \approx 4.6$, so the prior mode is $\sigma \approx 1.08$. That pulls the narrow component ($\sigma_2 = 0.7$) upwards. This explains why figure 2's MAP fit reports $\hat\sigma_2 = 0.97$. **MAP trades a little bias for removing the singularity.**
-- **Near-flat prior on the means.** $\tau = 3 \text{sd}(x) \approx 6.4$, so the mean prior has essentially no effect. All of the regularisation comes from the weight and variance priors.
+- **Near-flat prior on the means.** $\tau = 3 \cdot \text{sd}(x) \approx 6.4$, so the mean prior has essentially no effect. All of the regularisation comes from the weight and variance priors.
 - **MAP depends on parameterisation.** The prior is placed on $\sigma^2$ and the mode is taken in $\sigma^2$. Taking the mode in $\sigma$ or $\log\sigma$ under the transformed prior would give a different estimate. MAP is a point summary, not the posterior.
 
 ### 3.3 Optimisation
