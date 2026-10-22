@@ -50,7 +50,7 @@ N_k = \sum_i r_{ik}, \qquad
 S_k = \sum_i r_{ik} (x_i - \hat\mu_k)^2 ,
 $$
 
-where $r_{ik}$ is the responsibility of component $k$ for point $i$. Suppose a component's responsibilities concentrate on a single point $x_j$. Then $S_k$ shrinks faster than $N_k$, so $\sigma_k^2$ shrinks. The component becomes sharper, its responsibility for $x_j$ grows, and its responsibility for every other point drops. This positive feedback ends at the singularity. Nothing in the update pushes back.
+where $r_{ik}$ is the responsibility of component $k$ for point $i$: the posterior probability, under the current parameters, that $x_i$ came from component $k$ (derived in §2.3). Suppose a component's responsibilities concentrate on a single point $x_j$. Then $S_k$ shrinks faster than $N_k$, so $\sigma_k^2$ shrinks. The component becomes sharper, its responsibility for $x_j$ grows, and its responsibility for every other point drops. This positive feedback ends at the singularity. Nothing in the update pushes back.
 
 ### 1.4 What the singularity requires
 
@@ -63,25 +63,149 @@ where $r_{ik}$ is the responsibility of component $k$ for point $i$. Suppose a c
 
 ## 2. How MAP removes it
 
-### 2.1 Prior (as implemented in `mixture_demo.priors.Prior`)
+### 2.1 The Bayesian model (as implemented in `mixture_demo.priors.Prior`)
 
-The priors are independent across parameter blocks and across components. They are semi-conjugate, not the fully conjugate Normal–Inverse-Gamma:
+#### Generative model
+
+MAP treats the parameters $\theta = (\pi_{1:K}, \mu_{1:K}, \sigma^2_{1:K})$ as random. Its full model is the following generative process. The hyperparameters $(\alpha, m_0, \tau, a_0, b_0)$ are fixed constants:
+
+1. **Mixing weights.** Draw $\pi = (\pi_1, \dots, \pi_K) \sim \text{Dirichlet}(\alpha, \dots, \alpha)$.
+2. **Component parameters.** For each $k = 1, \dots, K$, independently, draw a mean $\mu_k \sim \mathcal{N}(m_0, \tau^2)$ and a variance $\sigma_k^2 \sim \text{Inv-Gamma}(a_0, b_0)$.
+3. **Data.** For each $i = 1, \dots, n$, independently given $\theta$:
+   - draw a latent component label $z_i \sim \text{Categorical}(\pi)$, i.e. $P(z_i = k \mid \pi) = \pi_k$;
+   - draw the observation from that component, $x_i \mid (z_i = k) \sim \mathcal{N}(\mu_k, \sigma_k^2)$.
+
+This process encodes the following assumptions:
+
+- **$K$ is known.** The number of components is fixed in advance, not inferred.
+- **The data are conditionally i.i.d.** Given $\theta$, the pairs $(z_i, x_i)$ are independent and identically distributed. The labels $z_i$ are never observed.
+- **The measurements are exact and continuous.** Each $x_i$ is a real number, with no rounding or censoring, so the likelihood is built from densities. As §1.4 explains, this is what allows the likelihood to diverge.
+- **The parameters are independent a priori.** $\pi$, each $\mu_k$ and each $\sigma_k^2$ are mutually independent. In particular, the prior on $\mu_k$ does not depend on $\sigma_k^2$. This makes the prior *semi*-conjugate. The fully conjugate Normal–Inverse-Gamma prior would instead take $\mu_k \mid \sigma_k^2 \sim \mathcal{N}(m_0, \sigma_k^2/\kappa_0)$.
+- **The components are exchangeable.** Every component has the same prior, so the model is unchanged when the labels are permuted, and the posterior has $K!$ equivalent modes. The code picks one by sorting the components by $\hat\mu_k$ (§3.3).
+- **The hyperparameters do not depend on $\theta$.** In practice they are set from summaries of the data (empirical Bayes; see below and §3.2).
+
+The simulations (§3.1) use only step 3: $\theta$ is fixed at a true value $\theta^*$ rather than drawn from the prior. The prior is the analyst's modelling choice, not a claim about how the data were produced.
+
+#### From the generative model to the posterior
+
+Throughout, $\mathcal{N}(x \mid \mu, \sigma^2) = (2\pi\sigma^2)^{-1/2} \exp\left(-(x - \mu)^2 / (2\sigma^2)\right)$. Here the $\pi$ in $2\pi$ is the constant $3.14\dots$, not a mixing weight.
+
+The joint density of everything drawn in steps 1–3 factorises in the same order as the steps:
+
+$$
+p(x_{1:n}, z_{1:n}, \theta) = p(\pi) \prod_{k=1}^{K} p(\mu_k) p(\sigma_k^2) \prod_{i=1}^{n} \pi_{z_i} \mathcal{N}(x_i \mid \mu_{z_i}, \sigma_{z_i}^2) .
+$$
+
+The labels are not observed, so we sum them out. Each $z_i$ appears only in the $i$-th factor, so the sum over all $K^n$ label configurations splits into one sum per observation:
+
+$$
+p(x_{1:n} \mid \theta) = \prod_{i=1}^{n} \sum_{k=1}^{K} \pi_k \mathcal{N}(x_i \mid \mu_k, \sigma_k^2) .
+$$
+
+This is the likelihood from §1.1, and $\ell(\theta) = \log p(x_{1:n} \mid \theta)$. By Bayes' theorem, the posterior is
+
+$$
+p(\theta \mid x_{1:n}) = \frac{p(x_{1:n} \mid \theta) p(\theta)}{p(x_{1:n})} .
+$$
+
+The evidence $p(x_{1:n})$ does not depend on $\theta$, and $\log$ is increasing, so the MAP estimate is
+
+$$
+\hat\theta_{\text{MAP}} = \arg\max_\theta \left[ \ell(\theta) + \log p(\theta) \right] .
+$$
+
+#### The prior density, term by term
+
+Because the parameters are independent a priori, the prior density is a product,
+
+$$
+p(\theta) = p(\pi) \prod_{k=1}^{K} p(\mu_k) p(\sigma_k^2) ,
+$$
+
+so $\log p(\theta)$ is a sum of three kinds of term.
+
+**Weights.** The Dirichlet density on the simplex ($\pi_k > 0$, $\sum_k \pi_k = 1$) and its log are
+
+$$
+p(\pi) = \frac{\Gamma(K\alpha)}{\Gamma(\alpha)^K} \prod_{k=1}^{K} \pi_k^{\alpha - 1} ,
+$$
+
+$$
+\log p(\pi) = \log\Gamma(K\alpha) - K \log\Gamma(\alpha) + (\alpha - 1) \sum_{k=1}^{K} \log \pi_k .
+$$
+
+**Means.** For each $k$, the Normal density and its log are
+
+$$
+p(\mu_k) = (2\pi\tau^2)^{-1/2} \exp\left( -\frac{(\mu_k - m_0)^2}{2\tau^2} \right) ,
+$$
+
+$$
+\log p(\mu_k) = -\tfrac{1}{2} \log(2\pi\tau^2) - \frac{(\mu_k - m_0)^2}{2\tau^2} .
+$$
+
+**Variances.** For each $k$, the Inverse-Gamma density of $v = \sigma_k^2 > 0$ and its log are
+
+$$
+p(v) = \frac{b_0^{a_0}}{\Gamma(a_0)} v^{-(a_0 + 1)} \exp\left( -\frac{b_0}{v} \right) ,
+$$
+
+$$
+\log p(\sigma_k^2) = a_0 \log b_0 - \log\Gamma(a_0) - (a_0 + 1) \log \sigma_k^2 - \frac{b_0}{\sigma_k^2} .
+$$
+
+This is a density over the *variance* $\sigma_k^2$, so MAP takes the mode in $\sigma_k^2$, not in $\sigma_k$ (see §3.2).
+
+**Sum.** Adding $\log p(\pi)$, the $K$ mean terms and the $K$ variance terms gives
+
+$$
+\log p(\theta) = C + (\alpha - 1) \sum_{k} \log \pi_k - \sum_{k} \frac{(\mu_k - m_0)^2}{2\tau^2} - \sum_{k} \left[ (a_0 + 1) \log \sigma_k^2 + \frac{b_0}{\sigma_k^2} \right] ,
+$$
+
+where the constant collects every term that contains no parameter:
+
+$$
+C = \log\Gamma(K\alpha) - K \log\Gamma(\alpha) - \tfrac{K}{2} \log(2\pi\tau^2) + K a_0 \log b_0 - K \log\Gamma(a_0) .
+$$
+
+$C$ depends only on the hyperparameters. It therefore does not move the argmax, and it does not change the curves in figure 1, which are shifted to 0 at $\sigma_2 = 1$. `Prior.logpdf` computes the $\theta$-dependent part. It also keeps the Normal's normalising constant, because it calls `scipy.stats.norm.logpdf`, but drops the rest of $C$.
+
+#### Choosing the hyperparameters (`Prior.weak`)
+
+The hyperparameters are set from summaries of the data, using population ($1/n$) moments (NumPy's default, `ddof=0`):
+
+$$
+\bar x = \frac{1}{n} \sum_{i=1}^{n} x_i , \qquad \text{var}(x) = \frac{1}{n} \sum_{i=1}^{n} (x_i - \bar x)^2 , \qquad \text{sd}(x) = \sqrt{\text{var}(x)} .
+$$
+
+**$\alpha = 2$** (`prior.alpha`). The density of $\text{Dirichlet}(2, \dots, 2)$ is proportional to $\prod_k \pi_k$. It is zero on the boundary of the simplex, where some component would be empty, and peaks at equal weights. In the M-step it acts as $\alpha - 1 = 1$ pseudo-observation per component (§2.3).
+
+**$m_0 = \bar x$ and $\tau = 3 \cdot \text{sd}(x)$** (`prior.tau_scale` is the 3). The mean prior is centred on the data and very wide: $m_0 \pm 2\tau$ spans $\bar x \pm 6 \cdot \text{sd}(x)$.
+
+**$a_0 = 2$ and $b_0$** (`prior.a0`). To find the mode of the Inverse-Gamma, differentiate its log density with respect to $v$ and set the result to zero:
+
+$$
+\frac{d}{dv} \left[ -(a_0 + 1) \log v - \frac{b_0}{v} \right] = -\frac{a_0 + 1}{v} + \frac{b_0}{v^2} = 0 \quad\Longrightarrow\quad v_{\text{mode}} = \frac{b_0}{a_0 + 1} .
+$$
+
+We set this mode to $\text{var}(x)/K^2$. That is a rough guess at a single component's variance if the $K$ components split the data's spread evenly, following the data-scaled defaults in Fraley & Raftery (2007). Solving for $b_0$ gives
+
+$$
+b_0 = \frac{(a_0 + 1) \cdot \text{var}(x)}{K^2} = \tfrac{3}{4} \text{var}(x) \quad \text{for } a_0 = 2, K = 2 .
+$$
+
+The two tails of this prior behave very differently:
+
+- **Large variances are barely penalised.** With $a_0 = 2$ the prior mean, $b_0/(a_0 - 1) = \tfrac{3}{4}\text{var}(x)$, exists, but the prior variance, $b_0^2 / \left[(a_0 - 1)^2 (a_0 - 2)\right]$, is infinite. The right tail is heavy.
+- **Small variances are strongly penalised.** As $v \to 0$, the factor $\exp(-b_0/v)$ vanishes faster than any power of $v$. This is the property §2.2 relies on.
+
+**Summary**
 
 | Parameter | Prior | Default in `Prior.weak(x)` | Config key |
 |---|---|---|---|
 | $\pi$ | $\text{Dirichlet}(\alpha, \dots, \alpha)$ | $\alpha = 2$ | `prior.alpha` |
 | $\mu_k$ | $\mathcal{N}(m_0, \tau^2)$ | $m_0 = \bar{x}$, $\tau = 3 \cdot \text{sd}(x)$ | `prior.tau_scale` (the 3) |
 | $\sigma_k^2$ | $\text{Inv-Gamma}(a_0, b_0)$ | $a_0 = 2$, $b_0 = \dfrac{(a_0+1) \cdot \text{var}(x)}{K^2}$ $\left(= \tfrac{3}{4} \text{var}(x) \text{ for } K = 2\right)$ | `prior.a0` |
-
-$b_0$ is chosen so that the **prior mode** of each variance, $b_0/(a_0+1)$, equals $\text{var}(x)/K^2$. That is a rough guess at a single component's variance if the $K$ components split the data's spread evenly. This follows the data-scaled defaults in Fraley & Raftery (2007).
-
-Log prior, up to a constant (`Prior.logpdf`):
-
-$$
-\log p(\theta) = (\alpha - 1)\sum_k \log \pi_k
--\sum_k \frac{(\mu_k - m_0)^2}{2\tau^2}
--\sum_k \Big[(a_0+1)\log\sigma_k^2 + \frac{b_0}{\sigma_k^2}\Big].
-$$
 
 ### 2.2 The posterior is bounded
 
@@ -96,12 +220,70 @@ $$
 
 The **IG power term makes the divergence worse**: it also goes to $+\infty$. What rescues the objective is the exponential term $-b_0/\sigma^2$, which goes to $-\infty$ faster than any power of $\log\sigma$ goes to $+\infty$. So any prior on the variance whose density vanishes faster than polynomially at 0 removes the singularity. A prior that is flat or polynomial near zero does not. For example, the Jeffreys-like $p(\sigma^2) \propto 1/\sigma^2$ makes things worse.
 
-### 2.3 MAP-EM updates (in `MAPMixture.m_step`)
+### 2.3 MAP-EM (E-step in `EMGaussianMixture.responsibilities`, M-step in `MAPMixture.m_step`)
 
-The E-step is the same as for MLE (it is shared in `EMGaussianMixture.responsibilities`). `MLEMixture` and `MAPMixture` differ only in their `m_step`, and in the objective: `MAPMixture` adds `Prior.logpdf` through `PriorMixin.log_prior`. The M-step maximises the expected complete-data log posterior:
+EM alternates two steps. Write $\theta^{(t)}$ for the current parameter values at iteration $t$; below, "old" means $\theta^{(t)}$. The E-step is identical for MLE and MAP, because the prior does not involve the labels $z_i$. `MLEMixture` and `MAPMixture` differ only in their `m_step` and in the objective: `MAPMixture` adds `Prior.logpdf` through `PriorMixin.log_prior`.
+
+#### E-step: responsibilities
+
+The labels $z_i$ are unknown, so the E-step computes their posterior distribution given the data and the current parameters. Given $\theta$, observation $i$ depends only on its own label (step 3 of §2.1). So by Bayes' theorem, applied to each observation separately:
 
 $$
-Q(\theta) = \sum_k \Big[ N_k \log \pi_k - \tfrac{N_k}{2}\log\sigma_k^2 - \tfrac{1}{2\sigma_k^2}\textstyle\sum_i r_{ik}(x_i-\mu_k)^2 \Big] + \log p(\theta).
+P(z_i = k \mid x_i, \theta^{(t)}) = \frac{P(z_i = k \mid \theta^{(t)}) p(x_i \mid z_i = k, \theta^{(t)})}{p(x_i \mid \theta^{(t)})} .
+$$
+
+The numerator is prior times likelihood for the label: $P(z_i = k \mid \theta^{(t)}) = \pi_k^{(t)}$ and $p(x_i \mid z_i = k, \theta^{(t)}) = \mathcal{N}(x_i \mid \mu_k^{(t)}, \sigma_k^{2(t)})$. The denominator is the same quantity summed over all $K$ labels. This posterior probability is the **responsibility** of component $k$ for point $i$:
+
+$$
+r_{ik} = \frac{\pi_k^{(t)} \mathcal{N}(x_i \mid \mu_k^{(t)}, \sigma_k^{2(t)})}{\sum_{j=1}^{K} \pi_j^{(t)} \mathcal{N}(x_i \mid \mu_j^{(t)}, \sigma_j^{2(t)})} .
+$$
+
+Each row is a probability distribution over components: $r_{ik} \ge 0$ and $\sum_k r_{ik} = 1$. Two sums of the responsibilities appear in every update:
+
+$$
+N_k = \sum_{i=1}^{n} r_{ik} , \qquad S_k = \sum_{i=1}^{n} r_{ik} (x_i - \mu_k)^2 .
+$$
+
+$N_k$ is the effective number of points assigned to component $k$, with $\sum_k N_k = n$. $S_k$ is the responsibility-weighted scatter around $\mu_k$.
+
+**In the code.** A collapsing component has $\mathcal{N}(x_i \mid \mu_k, \sigma_k^2)$ underflowing to 0 for distant points and growing without bound near its mean. So the E-step works in log space. `MixtureParams.component_logpdf` computes $\log \pi_k + \log \mathcal{N}(x_i \mid \mu_k, \sigma_k^2)$ for every $(i, k)$, and the responsibilities are
+
+$$
+\log r_{ik} = \log \pi_k + \log \mathcal{N}(x_i \mid \mu_k, \sigma_k^2) - \log \sum_{j=1}^{K} \exp\left[ \log \pi_j + \log \mathcal{N}(x_i \mid \mu_j, \sigma_j^2) \right] ,
+$$
+
+with the last term computed by `scipy.special.logsumexp`. `EMGaussianMixture.effective_counts` adds $10^{-12}$ to each $N_k$, so that an empty component cannot cause a division by zero.
+
+#### From the E-step to the M-step objective
+
+If the labels were known, the complete-data log-likelihood would be
+
+$$
+\log p(x_{1:n}, z_{1:n} \mid \theta) = \sum_{i=1}^{n} \sum_{k=1}^{K} \mathbb{1}[z_i = k] \left[ \log \pi_k + \log \mathcal{N}(x_i \mid \mu_k, \sigma_k^2) \right] .
+$$
+
+EM replaces this with its expectation under the E-step posterior over labels. The only random quantity is the indicator, and $\mathbb{E}\left[ \mathbb{1}[z_i = k] \mid x_i, \theta^{(t)} \right] = r_{ik}$. Adding the log prior, which does not involve $z$, gives the objective of the M-step:
+
+$$
+Q(\theta \mid \theta^{(t)}) = \sum_{i=1}^{n} \sum_{k=1}^{K} r_{ik} \left[ \log \pi_k + \log \mathcal{N}(x_i \mid \mu_k, \sigma_k^2) \right] + \log p(\theta) .
+$$
+
+Next, substitute $\log \mathcal{N}(x_i \mid \mu_k, \sigma_k^2) = -\tfrac{1}{2} \log(2\pi) - \tfrac{1}{2} \log \sigma_k^2 - (x_i - \mu_k)^2 / (2\sigma_k^2)$, and collect the sums over $i$ using $N_k$, $\sum_k N_k = n$ and $S_k$:
+
+$$
+Q(\theta \mid \theta^{(t)}) = -\tfrac{n}{2} \log(2\pi) + \sum_{k=1}^{K} \left[ N_k \log \pi_k - \tfrac{N_k}{2} \log \sigma_k^2 - \frac{S_k}{2\sigma_k^2} \right] + \log p(\theta) .
+$$
+
+The $-\tfrac{n}{2}\log(2\pi)$ term, like the constant $C$ in $\log p(\theta)$, contains no parameter, so it can be dropped. The responsibilities $r_{ik}$, and so $N_k$, are held fixed at their E-step values throughout the M-step. $S_k$ depends on the $\mu_k$ being optimised.
+
+Standard EM theory guarantees that increasing $Q$ never decreases the log posterior $\ell(\theta) + \log p(\theta)$ (Dempster, Laird & Rubin 1977). `EMGaussianMixture.fit` monitors exactly this quantity to decide when to stop.
+
+#### M-step
+
+Substituting $\log p(\theta)$ from §2.1 and dropping constants, the M-step maximises
+
+$$
+Q(\theta) = \sum_k \left[ N_k \log \pi_k - \tfrac{N_k}{2} \log \sigma_k^2 - \frac{S_k}{2\sigma_k^2} \right] + (\alpha - 1) \sum_k \log \pi_k - \sum_k \frac{(\mu_k - m_0)^2}{2\tau^2} - \sum_k \left[ (a_0 + 1) \log \sigma_k^2 + \frac{b_0}{\sigma_k^2} \right] .
 $$
 
 **Weights.** Maximise $\sum_k (N_k + \alpha - 1)\log\pi_k$ subject to $\sum_k\pi_k = 1$ (Lagrange multiplier):
@@ -141,6 +323,7 @@ Updating $\mu$ and then $\sigma^2$ in turn, conditional on each other, is an ECM
 ### 3.1 Data-generating process
 
 - **Truth** (`truth.weights`, `truth.means`, `truth.sds`): $K = 2$; $\pi = (0.6, 0.4)$; $\mu = (-2, +2)$; $\sigma = (1.0, 0.7)$. The two modes are well separated (about 4 pooled SDs apart), and the weights and variances are deliberately unequal.
+- **Simulation uses step 3 of §2.1 only.** Each dataset is $n$ i.i.d. draws from the mixture at the fixed $\theta^*$ above (`MixtureParams.sample`): draw $z_i \sim \text{Categorical}(\pi^*)$, then $x_i \sim \mathcal{N}(\mu^*_{z_i}, \sigma^{*2}_{z_i})$. The prior plays no part in generating data.
 - **Model correctly specified.** The fitted model has the same family and the same $K$ as the truth. Misspecification, and overfitting $K$, are not explored. Fitting $K = 3$ to these data would make collapse much more frequent, because a surplus component has nothing better to do than collapse.
 
 ### 3.2 Prior
