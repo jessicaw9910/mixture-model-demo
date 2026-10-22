@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mixture-model-demo"
+version = "0.1.0"
+description = "MLE vs MAP for a 1-D Gaussian mixture: a teaching demo of the unbounded mixture likelihood."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Jessica White", email = "jessbwhite@gmail.com" }]
+keywords = ["gaussian mixture", "maximum likelihood", "MAP", "EM", "bayesian", "teaching"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "omegaconf>=2.3",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+# `pip install -e ".[dev]"`
+dev = ["pytest>=7"]
+
+[dependency-groups]
+# `uv sync` installs this group by default
+dev = ["pytest>=7"]
+
+[project.scripts]
+mixture-demo = "mixture_demo.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mixture_demo"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
