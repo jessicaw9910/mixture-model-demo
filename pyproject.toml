@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "MLE vs MAP for a 1-D Gaussian mixture: a teaching demo of the unbounded mixture likelihood."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "Jessica White", email = "jessbwhite@gmail.com" }]
+authors = [{ name = "Jessica White" }]
 keywords = ["gaussian mixture", "maximum likelihood", "MAP", "EM", "bayesian", "teaching"]
 classifiers = [
     "Programming Language :: Python :: 3",
