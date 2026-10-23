@@ -18,7 +18,7 @@ from omegaconf.errors import OmegaConfBaseException
 
 from mixture_demo.models.params import MixtureParams
 
-FIGURE_NAMES = ("singularity", "single-dataset", "monte-carlo")
+FIGURE_NAMES = ("plate-diagram", "singularity", "single-dataset", "monte-carlo")
 
 
 class ConfigError(ValueError):
@@ -76,7 +76,7 @@ class ModelConfig:
 
 @dataclass
 class PriorConfig:
-    """Hyper-parameters passed to :meth:`mixture_demo.priors.Prior.weak`.
+    """Hyper-parameters passed to :meth:`mixture_demo.models.priors.Prior.weak`.
 
     Attributes
     ----------

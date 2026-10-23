@@ -125,6 +125,24 @@ def run(
     typer.echo(DemoRunner(cfg).run(output_dir))
 
 
+@app.command("plate-diagram")
+def plate_diagram(
+    output_dir: Annotated[
+        Path, typer.Option("--output-dir", "-o", file_okay=False, help="Directory to write into (created if needed).")
+    ] = Path("docs"),
+    formats: Annotated[
+        Optional[list[str]], typer.Option("--format", help="Output format (repeatable). Default: png and svg.")
+    ] = None,
+    dpi: Annotated[int, typer.Option(help="Resolution of raster output.")] = 300,
+) -> None:
+    """Write the model's plate diagram on its own (no simulation; used for the README)."""
+    from mixture_demo.plotting import PlateDiagramFigure
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for path in PlateDiagramFigure(dpi).save(None, output_dir, formats=formats or ["png", "svg"]):
+        typer.echo(path)
+
+
 @app.command("show-config")
 def show_config(overrides: OverridesArg = None, config: ConfigOpt = None, figures: FiguresOpt = None) -> None:
     """Print the resolved config (what `run` would use with the same arguments) as YAML."""

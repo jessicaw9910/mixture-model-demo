@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
-from typing import ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, Optional, TypeVar
 
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 from matplotlib import colormaps
 from matplotlib.figure import Figure
 
@@ -20,7 +22,7 @@ METHOD_COLORS = {"MLE": C_MLE, "MAP": C_MAP}
 
 STYLE = {"font.size": 12, "axes.spines.top": False, "axes.spines.right": False}
 
-ResultT = TypeVar("ResultT", bound=ExperimentResult)
+ResultT = TypeVar("ResultT", bound=Optional[ExperimentResult])
 
 
 class FigureRenderer(ABC, Generic[ResultT]):
@@ -29,10 +31,11 @@ class FigureRenderer(ABC, Generic[ResultT]):
     Parameters
     ----------
     dpi : int, default 200
-        Resolution of the saved image.
+        Resolution of saved raster images.
     """
 
-    filename: ClassVar[str]
+    stem: ClassVar[str]  # output filename without extension
+    style: ClassVar[dict[str, Any]] = {}  # rcParams layered on top of STYLE
 
     def __init__(self, dpi: int = 200) -> None:
         self.dpi = dpi
@@ -41,23 +44,27 @@ class FigureRenderer(ABC, Generic[ResultT]):
     def draw(self, result: ResultT) -> Figure:
         """Build the figure for ``result`` (called inside the shared style context)."""
 
-    def save(self, result: ResultT, out_dir: Path) -> Path:
-        """Draw ``result`` and write it to ``out_dir / filename``.
+    def save(self, result: ResultT, out_dir: Path, formats: Sequence[str] = ("png",)) -> list[Path]:
+        """Draw ``result`` and write it to ``out_dir / stem.<fmt>`` for each format.
 
         Parameters
         ----------
-        result : ExperimentResult
-            Output of the matching experiment.
+        result : ExperimentResult or None
+            Output of the matching experiment (None for figures that need no computation).
         out_dir : Path
             Existing directory to write into.
+        formats : sequence of str, default ("png",)
+            File extensions understood by matplotlib, e.g. ``("png", "svg", "pdf")``.
 
         Returns
         -------
-        Path
-            The saved image.
+        list of Path
+            The saved files, in the order of ``formats``.
         """
-        path = Path(out_dir) / self.filename
-        with mpl.rc_context(STYLE):
+        paths = [Path(out_dir) / f"{self.stem}.{fmt}" for fmt in formats]
+        with mpl.rc_context({**STYLE, **self.style}):
             fig = self.draw(result)
-            fig.savefig(path, dpi=self.dpi, bbox_inches="tight")
-        return path
+            for path in paths:
+                fig.savefig(path, dpi=self.dpi, bbox_inches="tight")
+        plt.close(fig)  # no-op for figures not created through pyplot
+        return paths

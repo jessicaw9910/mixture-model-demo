@@ -5,6 +5,7 @@ from mixture_demo.models.map import MAPMixture
 from mixture_demo.models.mixins import MultiStartMixin, PriorMixin
 from mixture_demo.models.mle import MLEMixture
 from mixture_demo.models.params import MixtureParams
+from mixture_demo.models.priors import Prior
 
 __all__ = [
     "EMGaussianMixture",
@@ -13,5 +14,6 @@ __all__ = [
     "MLEMixture",
     "MixtureParams",
     "MultiStartMixin",
+    "Prior",
     "PriorMixin",
 ]

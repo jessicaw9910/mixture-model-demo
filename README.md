@@ -63,7 +63,7 @@ where $r_{ik}$ is the responsibility of component $k$ for point $i$: the posteri
 
 ## 2. How MAP removes it
 
-### 2.1 The Bayesian model (as implemented in `mixture_demo.priors.Prior`)
+### 2.1 The Bayesian model (as implemented in `mixture_demo.models.priors.Prior`)
 
 #### Generative model
 
@@ -74,6 +74,10 @@ MAP treats the parameters $\theta = (\pi_{1:K}, \mu_{1:K}, \sigma^2_{1:K})$ as r
 3. **Data.** For each $i = 1, \dots, n$, independently given $\theta$:
    - draw a latent component label $z_i \sim \text{Categorical}(\pi)$, i.e. $P(z_i = k \mid \pi) = \pi_k$;
    - draw the observation from that component, $x_i \mid (z_i = k) \sim \mathcal{N}(\mu_k, \sigma_k^2)$.
+
+The plate diagram below shows the same model. Circles are random variables, the shaded circle is observed, small dots are fixed hyperparameters, and each arrow is a conditional dependence. A plate (box) means everything inside it is repeated: once per observation $i$ for the left plate, and once per component $k$ for the right. The arrows into $x_i$ from inside the $k$ plate mean that $x_i$ depends on every $(\mu_k, \sigma_k^2)$, and $z_i$ selects which one applies.
+
+![Plate diagram of the Bayesian Gaussian mixture model](docs/fig0_plate_diagram.png)
 
 This process encodes the following assumptions:
 
@@ -354,6 +358,11 @@ Updating $\mu$ and then $\sigma^2$ in turn, conditional on each other, is an ECM
 
 Each figure is computed by an experiment class in `mixture_demo.experiments` and drawn by a renderer class in `mixture_demo.plotting`. The values below are the defaults; the config key for each is shown in brackets.
 
+### Figure 0: `PlateDiagramFigure` → `fig0_plate_diagram.png`
+- The plate diagram of the model in §2.1. No computation is involved.
+- It is drawn with [daft](https://github.com/daft-dev/daft) (PyPI package `daft-pgm`).
+- To regenerate the copy in `docs/` that this README shows, run `mixture-demo plate-diagram`. It writes PNG and SVG by default; add `--format pdf` for slides.
+
 ### Figure 1: `SingularityExperiment` → `fig1_singularity.png`
 - $n = 40$ draws (`singularity.n`), seed 0 (`singularity.seed`).
 - Parameters fixed at $\pi = (0.5, 0.5)$, $\mu_1 = \bar x$, $\sigma_1 = \text{sd}(x)$ (a broad "background" component), and $\mu_2 = $ the data point nearest the largest true mean ($+2$).
@@ -455,6 +464,7 @@ Each run writes to a new timestamped folder:
 
 ```
 images/<YYYY-MM-DD_HH-MM-SS>/
+├── fig0_plate_diagram.png
 ├── fig1_singularity.png
 ├── fig2_single_dataset.png
 ├── fig3_monte_carlo.png
@@ -509,6 +519,8 @@ mixture-demo run --config my_config.yaml
 
 Other options: `-o DIR` writes into a specific folder instead of a timestamped one, and `-q` hides progress logging. For the full list, run `mixture-demo run --help`.
 
+To write just the plate diagram (PNG and SVG, into `docs/` by default), run `mixture-demo plate-diagram`.
+
 ### From Python
 
 ```python
@@ -541,10 +553,10 @@ src/mixture_demo/
 │   ├── base.py         # EMGaussianMixture (abstract): E-step, EM loop, sd floor; FitResult
 │   ├── mixins.py       # MultiStartMixin (random_init, fit_best); PriorMixin (adds log prior)
 │   ├── mle.py          # MLEMixture(MultiStartMixin, EMGaussianMixture): MLE M-step
-│   └── map.py          # MAPMixture(PriorMixin, MultiStartMixin, EMGaussianMixture): MAP M-step
-├── priors.py           # Prior, Prior.weak(x)
+│   ├── map.py          # MAPMixture(PriorMixin, MultiStartMixin, EMGaussianMixture): MAP M-step
+│   └── priors.py       # Prior, Prior.weak(x)
 ├── experiments/        # computation only: Singularity-, SingleDataset-, MonteCarloExperiment
-├── plotting/           # drawing only: one renderer per figure, shared style
+├── plotting/           # drawing only: one renderer per figure, shared style; plate.py draws fig. 0
 ├── config.py           # DemoConfig (OmegaConf structured config): every tunable parameter
 ├── runner.py           # DemoRunner: runs experiments, writes images/<timestamp>/
 └── cli/main.py         # `mixture-demo` (typer)

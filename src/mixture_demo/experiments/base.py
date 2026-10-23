@@ -9,8 +9,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 import numpy as np
 
 from mixture_demo.config import ModelConfig, PriorConfig
-from mixture_demo.models import MAPMixture, MixtureParams, MLEMixture
-from mixture_demo.priors import Prior
+from mixture_demo.models import MAPMixture, MixtureParams, MLEMixture, Prior
 
 
 @dataclass(frozen=True)
@@ -24,7 +23,7 @@ class ModelFactory:
     model : ModelConfig
         EM settings.
     prior : PriorConfig
-        Hyper-parameters for :meth:`Prior.weak <mixture_demo.priors.Prior.weak>`.
+        Hyper-parameters for :meth:`Prior.weak <mixture_demo.models.priors.Prior.weak>`.
     """
 
     n_components: int

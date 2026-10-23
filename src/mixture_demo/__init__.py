@@ -18,8 +18,7 @@ EM algorithm with one extra pseudo-count term in each M-step
 from importlib.metadata import PackageNotFoundError, version
 
 from mixture_demo.config import DemoConfig
-from mixture_demo.models import FitResult, MAPMixture, MixtureParams, MLEMixture
-from mixture_demo.priors import Prior
+from mixture_demo.models import FitResult, MAPMixture, MixtureParams, MLEMixture, Prior
 from mixture_demo.runner import DemoRunner
 
 try:

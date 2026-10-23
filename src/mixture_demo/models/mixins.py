@@ -10,7 +10,7 @@ from mixture_demo.models.params import MixtureParams
 
 if TYPE_CHECKING:
     from mixture_demo.models.base import FitResult
-    from mixture_demo.priors import Prior
+    from mixture_demo.models.priors import Prior
 
 
 class MultiStartMixin:

@@ -15,7 +15,7 @@ class MAPMixture(PriorMixin, MultiStartMixin, EMGaussianMixture):
     Parameters
     ----------
     prior : Prior
-        Prior over the mixture parameters, e.g. :meth:`Prior.weak(x) <mixture_demo.priors.Prior.weak>`.
+        Prior over the mixture parameters, e.g. :meth:`Prior.weak(x) <mixture_demo.models.priors.Prior.weak>`.
     **kwargs
         See :class:`~mixture_demo.models.base.EMGaussianMixture`.
     """

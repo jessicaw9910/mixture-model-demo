@@ -63,14 +63,21 @@ def test_run_writes_reusable_record(tmp_path):
     assert result.exit_code == 0, result.output
     (run_dir,) = tmp_path.iterdir()
     names = {p.name for p in run_dir.iterdir()}
-    assert {"config.yaml", "summary.json", "fig1_singularity.png",
+    assert {"config.yaml", "summary.json", "fig0_plate_diagram.png", "fig1_singularity.png",
             "fig2_single_dataset.png", "fig3_monte_carlo.png"} <= names
 
     saved = DemoConfig.load(run_dir / "config.yaml")
     assert saved.monte_carlo.sample_sizes == [15, 30]
     summary = json.loads((run_dir / "summary.json").read_text())
-    assert set(summary["figures"]) == {"singularity", "single-dataset", "monte-carlo"}
+    assert set(summary["figures"]) == {"plate-diagram", "singularity", "single-dataset", "monte-carlo"}
+    assert "results" not in summary["figures"]["plate-diagram"]
 
     # The saved config reproduces the run.
     rerun = cli.invoke(app, ["-q", "show-config", "--config", str(run_dir / "config.yaml")])
     assert DemoConfig.from_dict(OmegaConf.to_container(OmegaConf.create(rerun.output))) == saved
+
+
+def test_plate_diagram_command(tmp_path):
+    result = cli.invoke(app, ["plate-diagram", "-o", str(tmp_path / "docs"), "--format", "png", "--format", "pdf"])
+    assert result.exit_code == 0, result.output
+    assert {p.name for p in (tmp_path / "docs").iterdir()} == {"fig0_plate_diagram.png", "fig0_plate_diagram.pdf"}

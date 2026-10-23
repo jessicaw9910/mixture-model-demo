@@ -12,7 +12,7 @@ from mixture_demo.plotting.base import C_MAP, C_MLE, C_TRUE, METHOD_COLORS, Figu
 class SingularityFigure(FigureRenderer[SingularityResult]):
     """Fig. 1: log L and log posterior against sigma_2."""
 
-    filename = "fig1_singularity.png"
+    stem = "fig1_singularity"
 
     def draw(self, result: SingularityResult) -> Figure:
         sds, ll, lpost = result.sds, result.log_likelihood, result.log_posterior
@@ -52,7 +52,7 @@ class SingleDatasetFigure(FigureRenderer[SingleDatasetResult]):
         Histogram bins.
     """
 
-    filename = "fig2_single_dataset.png"
+    stem = "fig2_single_dataset"
 
     def __init__(self, dpi: int = 200, bins: int = 15) -> None:
         super().__init__(dpi)
@@ -98,7 +98,7 @@ class SingleDatasetFigure(FigureRenderer[SingleDatasetResult]):
 class MonteCarloFigure(FigureRenderer[MonteCarloResult]):
     """Fig. 3: degeneracy rate and median RMSE against sample size."""
 
-    filename = "fig3_monte_carlo.png"
+    stem = "fig3_monte_carlo"
 
     def draw(self, result: MonteCarloResult) -> Figure:
         ns = result.sample_sizes

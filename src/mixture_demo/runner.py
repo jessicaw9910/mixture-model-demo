@@ -18,7 +18,13 @@ from mixture_demo.experiments import (
     SingleDatasetExperiment,
     SingularityExperiment,
 )
-from mixture_demo.plotting import FigureRenderer, MonteCarloFigure, SingleDatasetFigure, SingularityFigure
+from mixture_demo.plotting import (
+    FigureRenderer,
+    MonteCarloFigure,
+    PlateDiagramFigure,
+    SingleDatasetFigure,
+    SingularityFigure,
+)
 
 log = logging.getLogger(__name__)
 
@@ -51,9 +57,14 @@ class DemoRunner:
             collapse_sd=config.model.collapse_sd,
         )
 
-    def build(self, name: str) -> tuple[Experiment, FigureRenderer]:
-        """Return the ``(experiment, renderer)`` pair for a figure name in :data:`FIGURE_NAMES`."""
+    def build(self, name: str) -> tuple[Experiment | None, FigureRenderer]:
+        """Return the ``(experiment, renderer)`` pair for a figure name in :data:`FIGURE_NAMES`.
+
+        The experiment is None for figures that need no computation (the plate diagram).
+        """
         c, dpi = self.config, self.config.output.dpi
+        if name == "plate-diagram":
+            return None, PlateDiagramFigure(dpi)
         if name == "singularity":
             return SingularityExperiment(c.singularity, **self._common), SingularityFigure(dpi)
         if name == "single-dataset":
@@ -107,11 +118,14 @@ class DemoRunner:
         for name in self.config.figures:
             experiment, renderer = self.build(name)
             t0 = time.perf_counter()
-            result = experiment.run()
-            path = renderer.save(result, run_dir)
+            result = experiment.run() if experiment else None
+            (path,) = renderer.save(result, run_dir)
             elapsed = time.perf_counter() - t0
             log.info("%s -> %s (%.1fs)", name, path.name, elapsed)
-            summary["figures"][name] = {"file": path.name, "seconds": round(elapsed, 2), "results": result.summary()}
+            entry = {"file": path.name, "seconds": round(elapsed, 2)}
+            if result is not None:
+                entry["results"] = result.summary()
+            summary["figures"][name] = entry
 
         summary["finished"] = datetime.now().isoformat(timespec="seconds")
         (run_dir / SUMMARY_FILENAME).write_text(json.dumps(summary, indent=2, default=_to_json) + "\n")
